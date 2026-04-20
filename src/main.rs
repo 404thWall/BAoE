@@ -1,11 +1,22 @@
 use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 use bevy::prelude::*;
 use bevy::text::FontSmoothing;
+use bevy::window::PresentMode;
 
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Imperial Rust".into(),
+                // This is the V-Sync setting:
+                // Immediate = V-sync OFF (Maximum FPS, may cause screen tearing)
+                // Mailbox = "Fast" V-sync (High FPS, no tearing, low latency)
+                present_mode: PresentMode::Immediate, 
+                ..default()
+            }),
+            ..default()
+        }),
             // The built-in FPS overlay
             FpsOverlayPlugin {
                 config: FpsOverlayConfig {
@@ -20,7 +31,7 @@ fn main() {
                     ..default()
                 },
             },
-        ))
+        ), )
         .add_systems(Startup, setup)
         .run();
 }

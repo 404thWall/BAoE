@@ -1,12 +1,3 @@
-[package]
-name = "baoe"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-anyhow = "1.0.102"
-env_logger = "0.11.10"
-fast_time = "0.1.17"
-pollster = "0.4.0"
-wgpu = "29.0.1"
-winit = "0.30.13"
+[workspace]
+resolver = "3"
+members = ["baoe", "ecs", "networking", "rendering"]

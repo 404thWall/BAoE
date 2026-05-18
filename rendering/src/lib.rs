@@ -2,51 +2,66 @@ use std::sync::Arc;
 
 use fast_time::Clock;
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{KeyEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::keyboard::PhysicalKey;
 use winit::raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::window::{Window, WindowId};
-mod example;
-mod render;
+mod screen;
+use screen::State;
 
 #[derive(Default)]
 struct App {
-    window: Option<Window>,
+    state: Option<State>,
     count: u32,
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.window = Some(
-            event_loop
-                .create_window(Window::default_attributes())
-                .unwrap(),
-        );
+        let window = event_loop
+            .create_window(Window::default_attributes())
+            .unwrap();
+        self.state = Some(pollster::block_on(State::new(Arc::new(window))).unwrap());
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        let state = match &mut self.state {
+            Some(canvas) => canvas,
+            None => return,
+        };
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
                 event_loop.exit();
             }
+            WindowEvent::Resized(size) => state.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
-                // Redraw the application.
-                //
-                // It's preferable for applications that do not render continuously to render in
-                // this event rather than in AboutToWait, since rendering in here allows
-                // the program to gracefully handle redraws requested by the OS.
+                state.update();
+                match state.render() {
+                    Ok(_) => {}
+                    Err(e) => {
+                        // Log the error and exit gracefully
+                        log::error!("{e}");
+                        event_loop.exit();
+                    }
+                }
 
-                // Draw.
-
-                // Queue a RedrawRequested evenxt.
-                //
-                // You only need to call this if you've determined that you need to redraw in
-                // applications which do not always need to. Applications that redraw continuously
-                // can render here instead.
-                self.window.as_ref().unwrap().request_redraw();
                 self.count += 1;
             }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: PhysicalKey::Code(code),
+                        state: key_state,
+                        ..
+                    },
+                ..
+            } => state.handle_key(event_loop, code, key_state.is_pressed()),
+            WindowEvent::MouseInput {
+                device_id: _,
+                state: mouse_state,
+                button,
+            } => state.handle_mouse(event_loop, button, mouse_state.is_pressed()),
             _ => (),
         }
     }
@@ -71,7 +86,7 @@ fn main() {
     let elapsed = start.elapsed(&mut clock);
     println!("App ran for {}s", elapsed.as_secs_f64());
     println!(
-        "Average fps was : {}",
+        "Average render calls per second was : {}",
         app.count as f64 / elapsed.as_secs_f64()
     );
 }
